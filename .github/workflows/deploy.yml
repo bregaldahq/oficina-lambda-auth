@@ -3,6 +3,9 @@ name: deploy
 on:
   push:
     branches: [develop, main]
+  # Permite reimplantar sem precisar de um push — útil para reaplicar após
+  # corrigir infraestrutura de que a função depende (NLB, VPC Link, segredos).
+  workflow_dispatch:
 
 concurrency:
   group: deploy-${{ github.ref }}
