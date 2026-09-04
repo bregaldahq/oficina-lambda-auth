@@ -106,4 +106,3 @@ jobs:
           guid: ${{ secrets.NEW_RELIC_LAMBDA_ENTITY_GUID }}
           version: ${{ github.sha }}
           user: ${{ github.actor }}
-        continue-on-error: true
