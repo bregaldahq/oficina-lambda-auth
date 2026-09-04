@@ -155,12 +155,20 @@ final class AuthCpfHandler
 
     private static function logError(Throwable $e): void
     {
+        // The repository wraps PDOException in a RepositoryException with a friendly
+        // message. Logging only the top-level message throws away the ONLY thing that
+        // tells "table does not exist" apart from "access denied" or "connection
+        // refused" — all of which surface identically as "Falha ao consultar o cliente".
+        $cause = $e->getPrevious();
+
         $line = json_encode([
             'level'             => 'error',
             'message'           => 'auth.cpf.failed',
             'service'           => 'oficina-auth-cpf',
             'exception_class'   => $e::class,
             'exception_message' => $e->getMessage(),
+            'cause_class'       => $cause?->getMessage() === null ? null : $cause::class,
+            'cause_message'     => $cause?->getMessage(),
             'file'              => $e->getFile(),
             'line'              => $e->getLine(),
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
