@@ -1,0 +1,102 @@
+name: deploy
+
+on:
+  push:
+    branches: [develop, main]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # OIDC — nenhuma access key estática
+  contents: read
+
+jobs:
+  deploy:
+    name: Build e apply (${{ github.ref_name == 'main' && 'producao' || 'homologacao' }})
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
+    env:
+      TF_ENV: ${{ github.ref_name == 'main' && 'prod' || 'hml' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: json, pdo, pdo_mysql
+          coverage: none
+
+      - name: Instalar dependências (com dev, para os testes)
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Teste de contrato do JWT
+        run: vendor/bin/phpunit --testsuite contract
+
+      - name: Testes
+        run: vendor/bin/phpunit
+
+      # Reinstala sem dev e empacota. As duas Lambdas recebem o MESMO zip:
+      # o que as diferencia é o handler configurado no Terraform.
+      - name: Gerar pacote de produção
+        run: |
+          composer install --no-dev --no-interaction --prefer-dist \
+            --optimize-autoloader --classmap-authoritative
+          mkdir -p build
+          zip -qr build/lambda.zip src vendor handler-auth.php handler-authorizer.php composer.json -x '*.git*'
+          ls -lh build/lambda.zip
+
+      - name: Autenticar na AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: terraform init
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=oficina/oficina-lambda-auth/${TF_ENV}/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="dynamodb_table=oficina-tflock" \
+            -backend-config="encrypt=true"
+
+      - name: terraform apply
+        run: |
+          terraform apply -auto-approve -input=false \
+            -var-file="envs/${TF_ENV}.tfvars" \
+            -var="lambda_package_path=build/lambda.zip" \
+            -var="newrelic_account_id=${{ secrets.NEW_RELIC_ACCOUNT_ID }}"
+
+      - name: Smoke test da rota pública
+        run: |
+          API="$(terraform output -raw api_endpoint)"
+          echo "API: $API"
+          # CPF sintético inexistente: esperamos 404 (a rota responde e o banco foi
+          # alcançado). Qualquer 5xx aqui reprova o deploy.
+          STATUS="$(curl -s -o /tmp/out.json -w '%{http_code}' \
+            -X POST "$API/auth/cpf" \
+            -H 'Content-Type: application/json' \
+            -d '{"cpf":"52998224725"}')"
+          cat /tmp/out.json
+          echo "status=$STATUS"
+          case "$STATUS" in
+            200|403|404) echo "smoke ok" ;;
+            *) echo "smoke falhou"; exit 1 ;;
+          esac
+
+      - name: Marcar deployment no New Relic
+        if: success()
+        uses: newrelic/deployment-marker-action@v2.3.0
+        with:
+          apiKey: ${{ secrets.NEW_RELIC_API_KEY }}
+          guid: ${{ secrets.NEW_RELIC_LAMBDA_ENTITY_GUID }}
+          version: ${{ github.sha }}
+          user: ${{ github.actor }}
+        continue-on-error: true

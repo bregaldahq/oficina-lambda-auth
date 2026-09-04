@@ -1,0 +1,68 @@
+name: pr
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  php:
+    name: Testes e análise estática
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: json, pdo, pdo_mysql
+          coverage: none
+
+      - name: Cache do Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.json') }}
+          restore-keys: composer-
+
+      - name: Instalar dependências
+        run: composer install --no-interaction --prefer-dist
+
+      # O teste de contrato do token roda primeiro e isolado: se ele quebrar,
+      # o token desta Lambda deixaria de ser aceito pela aplicação em produção.
+      - name: Teste de contrato do JWT
+        run: vendor/bin/phpunit --testsuite contract
+
+      - name: Testes unitários
+        run: vendor/bin/phpunit
+
+      - name: PHPStan (nível 8)
+        run: vendor/bin/phpstan analyse --no-progress
+
+  terraform:
+    name: Terraform fmt e validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive
+
+      # Sem backend e sem credencial: é o teto de verificação possível no PR.
+      - name: terraform init
+        run: terraform init -backend=false -input=false
+
+      - name: terraform validate
+        run: terraform validate

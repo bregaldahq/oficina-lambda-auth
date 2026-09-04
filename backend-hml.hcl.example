@@ -1,0 +1,6 @@
+# terraform init -backend-config=backend-hml.hcl
+bucket         = "oficina-tfstate-<sufixo>"
+key            = "oficina/oficina-lambda-auth/hml/terraform.tfstate"
+region         = "us-east-1"
+dynamodb_table = "oficina-tflock"
+encrypt        = true

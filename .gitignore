@@ -1,0 +1,9 @@
+/vendor/
+/.phpunit.cache/
+/build/
+*.zip
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars.local
+backend-*.hcl
