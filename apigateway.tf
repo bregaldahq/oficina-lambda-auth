@@ -22,7 +22,7 @@ resource "aws_apigatewayv2_api" "this" {
 
 resource "aws_security_group" "vpc_link" {
   name        = "${local.name_prefix}-vpclink-sg"
-  description = "ENIs do VPC Link do API Gateway. So' egress para dentro da VPC."
+  description = "ENIs do VPC Link do API Gateway. Somente egress para dentro da VPC."
   vpc_id      = nonsensitive(data.aws_ssm_parameter.vpc_id.value)
 
   tags = { Name = "${local.name_prefix}-vpclink-sg" }
@@ -158,7 +158,6 @@ resource "aws_apigatewayv2_stage" "default" {
       service         = "oficina-apigw"
       env             = var.environment
       correlation_id  = "$context.requestId"
-      trace_id        = "$context.xrayTraceId"
       method          = "$context.httpMethod"
       path            = "$context.path"
       route           = "$context.routeKey"

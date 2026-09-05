@@ -3,6 +3,9 @@ name: deploy
 on:
   push:
     branches: [develop, main]
+  # Permite reimplantar sem precisar de um push — útil para reaplicar após
+  # corrigir infraestrutura de que a função depende (NLB, VPC Link, segredos).
+  workflow_dispatch:
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -91,12 +94,15 @@ jobs:
             *) echo "smoke falhou"; exit 1 ;;
           esac
 
+      # O entity GUID só existe depois que a função reporta ao New Relic pela
+      # primeira vez. Até lá o secret fica vazio e a action falha — por isso o
+      # passo é explicitamente não-bloqueante: marcar deploy não pode derrubar deploy.
       - name: Marcar deployment no New Relic
         if: success()
+        continue-on-error: true
         uses: newrelic/deployment-marker-action@v2.3.0
         with:
           apiKey: ${{ secrets.NEW_RELIC_API_KEY }}
           guid: ${{ secrets.NEW_RELIC_LAMBDA_ENTITY_GUID }}
           version: ${{ github.sha }}
           user: ${{ github.actor }}
-        continue-on-error: true
