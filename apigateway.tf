@@ -125,6 +125,21 @@ resource "aws_apigatewayv2_route" "ready" {
   authorization_type = "NONE"
 }
 
+# Login do admin, sem authorizer.
+#
+# Mesma armadilha das sondas: com identity_sources = Authorization, o gateway
+# responde 401 sem invocar a Lambda quando o header esta ausente — e um login
+# nunca traz Authorization, por definicao. A isencao dentro do authorizer so'
+# valia quando alguem mandava um header qualquer, o que ninguem faz.
+#
+# Sem esta rota, NENHUMA rota de admin e' alcancavel: o token de admin nasce aqui.
+resource "aws_apigatewayv2_route" "admin_login" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "POST /api/auth/login"
+  target             = "integrations/${aws_apigatewayv2_integration.app_proxy.id}"
+  authorization_type = "NONE"
+}
+
 # Documentacao da API, publica. O enunciado exige link do Swagger em cada README,
 # e sem estas rotas ele so' existe dentro do cluster. O nginx da aplicacao ja serve
 # /docs (Swagger UI) e /swagger.yaml (OpenAPI).
