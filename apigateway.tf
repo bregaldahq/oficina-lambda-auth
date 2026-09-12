@@ -125,6 +125,30 @@ resource "aws_apigatewayv2_route" "ready" {
   authorization_type = "NONE"
 }
 
+# Documentacao da API, publica. O enunciado exige link do Swagger em cada README,
+# e sem estas rotas ele so' existe dentro do cluster. O nginx da aplicacao ja serve
+# /docs (Swagger UI) e /swagger.yaml (OpenAPI).
+resource "aws_apigatewayv2_route" "docs" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "GET /docs/{proxy+}"
+  target             = "integrations/${aws_apigatewayv2_integration.app_proxy.id}"
+  authorization_type = "NONE"
+}
+
+resource "aws_apigatewayv2_route" "docs_index" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "GET /docs"
+  target             = "integrations/${aws_apigatewayv2_integration.app_proxy.id}"
+  authorization_type = "NONE"
+}
+
+resource "aws_apigatewayv2_route" "openapi" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "GET /swagger.yaml"
+  target             = "integrations/${aws_apigatewayv2_integration.app_proxy.id}"
+  authorization_type = "NONE"
+}
+
 # Todo o resto da aplicacao, atras do authorizer. `POST /api/auth/login` tambem
 # passa por aqui, mas o proprio authorizer libera essa rota sem token.
 resource "aws_apigatewayv2_route" "app_proxy" {
