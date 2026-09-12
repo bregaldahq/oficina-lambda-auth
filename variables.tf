@@ -169,3 +169,25 @@ variable "newrelic_license_key_secret_id" {
   type        = string
   default     = ""
 }
+
+variable "newrelic_license_key" {
+  description = <<-EOT
+    License key (INGEST) do New Relic, usada pelo Firehose que envia os logs das
+    Lambdas e do API Gateway. Vem do secret NEW_RELIC_LICENSE_KEY do repositorio,
+    nunca de tfvars. Vazio desliga o envio.
+  EOT
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "newrelic_region" {
+  description = "Regiao da conta New Relic: define o endpoint do Firehose."
+  type        = string
+  default     = "us"
+
+  validation {
+    condition     = contains(["us", "eu"], var.newrelic_region)
+    error_message = "newrelic_region deve ser us ou eu."
+  }
+}

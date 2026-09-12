@@ -75,7 +75,8 @@ jobs:
           terraform apply -auto-approve -input=false \
             -var-file="envs/${TF_ENV}.tfvars" \
             -var="lambda_package_path=build/lambda.zip" \
-            -var="newrelic_account_id=${{ secrets.NEW_RELIC_ACCOUNT_ID }}"
+            -var="newrelic_account_id=${{ secrets.NEW_RELIC_ACCOUNT_ID }}" \
+            -var="newrelic_license_key=${{ secrets.NEW_RELIC_LICENSE_KEY }}"
 
       - name: Smoke test da rota pública
         run: |
