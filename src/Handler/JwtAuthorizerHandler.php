@@ -22,13 +22,22 @@ use Throwable;
 final class JwtAuthorizerHandler
 {
     /**
-     * Rotas liberadas sem token. `POST /api/auth/login` e' onde o admin OBTEM o
-     * token; exigi-lo aqui tornaria o login inalcancavel.
+     * Rotas liberadas sem token, conforme a matriz de autorizacao dos Contratos (secao 5).
+     *
+     * `POST /api/auth/login` e' onde o admin OBTEM o token; exigi-lo aqui tornaria o
+     * login inalcancavel.
+     *
+     * `/api/health` e `/api/ready` sao sondas. Exigir token nelas quebra tudo que checa
+     * saude de fora do cluster: o monitor Synthetic, o uptime e qualquer verificacao
+     * externa passam a receber 401 e a reportar indisponibilidade de um servico que esta
+     * no ar — um falso negativo que so aparece quando alguem repara.
      *
      * @var list<array{method: string, path: string}>
      */
     private const PUBLIC_ROUTES = [
         ['method' => 'POST', 'path' => '/api/auth/login'],
+        ['method' => 'GET', 'path' => '/api/health'],
+        ['method' => 'GET', 'path' => '/api/ready'],
     ];
 
     /** @var callable(): int */
