@@ -2,7 +2,12 @@ name: deploy
 
 on:
   push:
-    branches: [develop, main]
+    branches: [develop]
+  # Produção não aplica sozinha. Um merge em `main` é uma decisão de código;
+  # aplicar em produção é uma decisão de operação, e as duas não devem acontecer
+  # no mesmo gesto. Já aconteceu neste projeto: um merge de correção em `main`
+  # provisionou um cluster de produção inteiro sem ninguém pedir. Para aplicar
+  # em `main`, dispare este workflow manualmente com a ref `main`.
   # Permite reimplantar sem precisar de um push — útil para reaplicar após
   # corrigir infraestrutura de que a função depende (NLB, VPC Link, segredos).
   workflow_dispatch:
@@ -75,7 +80,8 @@ jobs:
           terraform apply -auto-approve -input=false \
             -var-file="envs/${TF_ENV}.tfvars" \
             -var="lambda_package_path=build/lambda.zip" \
-            -var="newrelic_account_id=${{ secrets.NEW_RELIC_ACCOUNT_ID }}"
+            -var="newrelic_account_id=${{ secrets.NEW_RELIC_ACCOUNT_ID }}" \
+            -var="newrelic_license_key=${{ secrets.NEW_RELIC_LICENSE_KEY }}"
 
       - name: Smoke test da rota pública
         run: |

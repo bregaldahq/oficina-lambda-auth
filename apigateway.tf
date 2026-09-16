@@ -102,6 +102,68 @@ resource "aws_apigatewayv2_route" "auth_cpf" {
   authorization_type = "NONE"
 }
 
+# Sondas de saude, sem authorizer.
+#
+# Nao basta libera-las na lista do authorizer: com identity_sources definido, o API
+# Gateway responde 401 SEM invocar a Lambda quando o header Authorization esta ausente
+# — que e' exatamente o caso de um health check. A isencao no codigo nunca seria
+# consultada.
+#
+# Rotas mais especificas vencem `ANY /api/{proxy+}` no roteamento do HTTP API, entao
+# estas duas passam direto para a aplicacao.
+resource "aws_apigatewayv2_route" "health" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "GET /api/health"
+  target             = "integrations/${aws_apigatewayv2_integration.app_proxy.id}"
+  authorization_type = "NONE"
+}
+
+resource "aws_apigatewayv2_route" "ready" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "GET /api/ready"
+  target             = "integrations/${aws_apigatewayv2_integration.app_proxy.id}"
+  authorization_type = "NONE"
+}
+
+# Login do admin, sem authorizer.
+#
+# Mesma armadilha das sondas: com identity_sources = Authorization, o gateway
+# responde 401 sem invocar a Lambda quando o header esta ausente — e um login
+# nunca traz Authorization, por definicao. A isencao dentro do authorizer so'
+# valia quando alguem mandava um header qualquer, o que ninguem faz.
+#
+# Sem esta rota, NENHUMA rota de admin e' alcancavel: o token de admin nasce aqui.
+resource "aws_apigatewayv2_route" "admin_login" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "POST /api/auth/login"
+  target             = "integrations/${aws_apigatewayv2_integration.app_proxy.id}"
+  authorization_type = "NONE"
+}
+
+# Documentacao da API, publica. O enunciado exige link do Swagger em cada README,
+# e sem estas rotas ele so' existe dentro do cluster. O nginx da aplicacao ja serve
+# /docs (Swagger UI) e /swagger.yaml (OpenAPI).
+resource "aws_apigatewayv2_route" "docs" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "GET /docs/{proxy+}"
+  target             = "integrations/${aws_apigatewayv2_integration.app_proxy.id}"
+  authorization_type = "NONE"
+}
+
+resource "aws_apigatewayv2_route" "docs_index" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "GET /docs"
+  target             = "integrations/${aws_apigatewayv2_integration.app_proxy.id}"
+  authorization_type = "NONE"
+}
+
+resource "aws_apigatewayv2_route" "openapi" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "GET /swagger.yaml"
+  target             = "integrations/${aws_apigatewayv2_integration.app_proxy.id}"
+  authorization_type = "NONE"
+}
+
 # Todo o resto da aplicacao, atras do authorizer. `POST /api/auth/login` tambem
 # passa por aqui, mas o proprio authorizer libera essa rota sem token.
 resource "aws_apigatewayv2_route" "app_proxy" {

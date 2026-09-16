@@ -99,6 +99,35 @@ final class JwtAuthorizerHandlerTest extends TestCase
         self::assertSame('public', $result['context']['role']);
     }
 
+    /**
+     * As sondas precisam responder sem token.
+     *
+     * Exigir autenticacao aqui nao derruba a aplicacao — derruba quem a OBSERVA de fora:
+     * o monitor Synthetic, o uptime e qualquer checagem externa passam a receber 401 e a
+     * reportar indisponibilidade de um servico que esta perfeitamente no ar. O falso
+     * negativo e' silencioso e so aparece quando alguem estranha o grafico.
+     *
+     * Foi exatamente o que aconteceu: as duas rotas ficaram fora da lista e o Synthetic
+     * reportou falha por uma semana.
+     */
+    public function testAllowsHealthAndReadyWithoutToken(): void
+    {
+        foreach (['/api/health', '/api/ready'] as $path) {
+            $result = $this->handler()->handle($this->event('GET', $path));
+
+            self::assertTrue($result['isAuthorized'], "sonda {$path} deveria ser publica");
+            self::assertSame('public', $result['context']['role']);
+        }
+    }
+
+    /** Sonda so' e' publica no metodo certo: POST /api/health continua exigindo token. */
+    public function testHealthIsPublicOnlyForGet(): void
+    {
+        $result = $this->handler()->handle($this->event('POST', '/api/health'));
+
+        self::assertFalse($result['isAuthorized']);
+    }
+
     public function testAllowsLoginRouteWithTrailingSlash(): void
     {
         $result = $this->handler()->handle($this->event('POST', '/api/auth/login/'));
