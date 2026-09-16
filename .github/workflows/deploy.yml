@@ -1,8 +1,6 @@
 name: deploy
 
 on:
-  push:
-    branches: [develop]
   # Produção não aplica sozinha. Um merge em `main` é uma decisão de código;
   # aplicar em produção é uma decisão de operação, e as duas não devem acontecer
   # no mesmo gesto. Já aconteceu neste projeto: um merge de correção em `main`
